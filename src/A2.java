@@ -30,6 +30,9 @@ public class A2 {
     public static JButton button;
 
 
+    /**
+     * The main class in charge of initializing the UI and running basic calls and operations.
+     */
     public static void main(String[] args)
     {
         // Init the frame
@@ -76,7 +79,7 @@ public class A2 {
      *  This menu bar is the main menu bar that will be attached to the frame of the
      *  main window. It will contain all the options as required by the assignment details.
      */
-    public static class MenuBar extends JMenuBar
+    public static class MenuBar extends JMenuBar implements Serializable
     {
         // JMenu "menu" option
         JMenu fileObj;
@@ -156,6 +159,7 @@ public class A2 {
 
                     // New File Chooser object
                     JFileChooser chooser = new JFileChooser();
+                    chooser.setDialogTitle("What file to open");
 
                     // Null component for the file chooser
                     Component component = null;
@@ -171,10 +175,27 @@ public class A2 {
 
                     try
                     {
+                        System.out.println("Reading");
                         ObjectInputStream reader = new ObjectInputStream(new FileInputStream(file));
+                        int[][] intArrayRead = (int [][]) reader.readObject();
+
+                        for(int i = 0; i < intArrayRead.length ; i++)
+
+                            for(int j = 0; j < intArrayRead.length ; j++) {
+                                square.grid[i][j] = intArrayRead[i][j];
+                                System.out.println(intArrayRead[i][j] + " ");
+                                System.out.println(square.grid[i][j] + " ");
+                            }
+                        square.openedFileInit();
                     }
 
                     catch(FileNotFoundException event)
+                    {
+                        event.printStackTrace();
+
+                    }
+
+                    catch(ClassNotFoundException event)
                     {
                         event.printStackTrace();
                     }
@@ -192,6 +213,41 @@ public class A2 {
             fileItem[2].addActionListener(new ActionListener() {
                 public void actionPerformed(ActionEvent e) {
                     System.out.println("Save");
+
+                    // New File Chooser object
+                    JFileChooser chooser = new JFileChooser();
+                    chooser.setDialogTitle("Specify where to save");
+
+                    // Save the square into the array
+                    square.saveInput();
+
+                    // Null component for the file chooser
+                    Component component = null;
+                    File file = null;
+                    int returnVal = chooser.showSaveDialog(component);
+
+                    // If it's a valid file, assign it to File var file, which will be brought into the OIS
+                    if (returnVal == chooser.APPROVE_OPTION)
+                    {
+                        file = chooser.getSelectedFile();
+                        System.out.println("Saving: " + file);
+                    }
+
+                    try
+                    {
+                        ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(file));
+                        out.writeObject(square.grid);
+                        out.close();
+                    }
+                    catch (FileNotFoundException event)
+                    {
+                        event.printStackTrace();
+                    }
+                    catch (IOException event)
+                    {
+                        event.printStackTrace();
+                    }
+
                 }
             });
 
@@ -214,7 +270,10 @@ public class A2 {
      */
     public static class Square
     {
+        // The 2D array will be an int, because all the user inputs is ints
         int[][] grid;
+
+        // This is for the user to input into (the UI)
         JTextField[][] intField;
 
         /**
@@ -233,6 +292,81 @@ public class A2 {
             // Calls the createInterface method so the user input interface can be created
             createInterface(input);
 
+        }
+
+        /**
+         * This checks the square for duplicates and to actually see if the values provided make a magic square.
+         * This is what the check button in the frame links to, it provides the user with graphical notices as well if
+         * they are missing numbers or have provided a bad input.
+         *
+         * @return true if the number is a magic number and false if it is not
+         */
+        public boolean isMagic()
+        {
+            int flag = 0; // Flags if something goes wrong
+
+            // Save all to grid first
+            saveInput();
+
+            // If there isn't a duplicate and nothing else has been flagged (i.e incompatible user input) then move onto
+            // the next process.
+            if (dupeCheck(grid) == true && flag == 0)
+            {
+                // To have something to check against the rest
+                int total = 0;
+
+                // Holds the grid and compares it to the other grids to check if all the sums are the same
+                int compareHorizontal = 0;
+                int compareVertical = 0;
+
+                // Loop through just one part of the grid (in this case the top row) capture one of the totals to compare
+                // to the rest
+                for(int i = 0; i < grid.length; i++)
+                {
+                    total += grid[0][i]; // Go horizontally
+                }
+
+                // HORIZONTAL/VERTICAL CHECK
+                for(int i = 0; i < grid.length; i++)
+                {
+                    compareHorizontal = 0;
+                    compareVertical = 0;
+                    for(int j = 0; j < grid.length; j++)
+                    {
+                        // Additional line to make sure all the numbers are within n^2
+                        if (grid[i][j] > Math.pow(grid.length, 2))
+                        {
+                            System.out.println(grid[i][j]+ " is larger than n^2");
+                            cleanGrid();
+                            messageHandler(false);
+                            break;
+                        }
+
+                        compareHorizontal += grid[i][j];
+                        compareVertical += grid[j][i];
+
+                    }
+
+                    if(compareVertical != total || compareHorizontal!= total)
+                    {
+                        System.out.println("Vertical/Horizontal Mismatch");
+                       // cleanGrid();
+                        messageHandler(false);
+                        break;
+                    }
+
+                    else
+                    {
+                        messageHandler(true);
+                    }
+
+                }
+                // TODO: DIAGONAL CHECK
+
+                //messageHandler(true);
+                return true;
+            }
+            return true;
         }
 
         /**
@@ -273,19 +407,25 @@ public class A2 {
 
         }
 
+        /**
+         * Used only for when the user opened a saved file.
+         */
+        public void openedFileInit()
+        {
+            for(int i = 0; i < grid.length; i++)
+                for (int j = 0; j < grid.length; j++)
+                {
+                    intField[i][j].setText(Integer.toString(grid[i][j]));
+                }
+        }
+
 
         /**
-         * This checks the square for duplicates and to actually see if the values provided make a magic square.
-         * This is what the check button in the frame links to, it provides the user with graphical notices as well if
-         * they are missing numbers or have provided a bad input.
-         *
-         * @return true if the number is a magic number and false if it is not
+         * Saves the user input, when required. Generally used when the user hits the check button or goes to save the
+         * square.
          */
-        public boolean isMagic()
+        public void saveInput()
         {
-            int flag = 0; // Flags if something goes wrong
-
-            // Save all to grid first
             for(int i = 0; i < intField.length - 1; i++)
             {
                 for(int j = 0; j < intField.length - 1; j++)
@@ -302,39 +442,50 @@ public class A2 {
                         JFrame frame = new JFrame();
 
                         // Flag as a bad operation and don't let it think of it as a separate integer no matter what was in the square before
-                        flag = 1;
+                        //flag = 1;
 
                         // Tell the user where the problem is
                         JOptionPane.showMessageDialog(frame, "There's a bad input in row " + (i+1) + " column " + (j+1) + ". Please check and try again.");
 
+                        grid[i][j] = -1; // clear all input from that slot
+                        intField[i][j].setText("");
                     }
                 }
             }
-
-            // dupe check is broken, fix it
-        if (dupeCheck(grid) == true && flag == 0) // If there is a duplicate
-        {
-            //TODO, other operations to check the magic squareness
-            messageHandler(true);
-            return true;
-        }
-        else // if there is not a duplicate
-        {
-            messageHandler(false);
-            return false;
-        }
         }
 
+        /**
+         * Cleans the array up for the user so that if they enter a bad input, the program doesn't hold onto the old
+         * values (even though in most situations it gets rid of it. This is in the case that it is a magic number and
+         * the user intentionally tries to use a bad input or enters a different number.
+         */
+        public void cleanGrid()
+        {
+            // Cleanup operation so that it can do another check if the user desires
+            for (int i = 0; i < grid.length; i++)
+                for(int j = 0; i < grid.length; j++)
+                    grid[i][j] = 0;
+        }
+
+        /**
+         *
+         * @param intArray
+         * @return true if there is no duplicate, false if there is a duplicate
+         */
         public boolean dupeCheck(int[][] intArray)
         {
             Set<Integer> intSet = new HashSet<Integer>();
 
+            // Loop through array
            for (int i = 0; i < intArray.length; i++)
            {
                for (int j = 0; j < intArray.length; j++)
                {
                    if (intSet.contains(intArray[i][j]))
+                   // return false iff there is a duplicate in the set that's about to be put in
                    return false;
+
+                   // add it to array so that the rest can be checked
                    intSet.add(intArray[i][j]);
 
                }
